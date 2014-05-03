@@ -100,10 +100,9 @@ def connect_user(request, access_token=None, facebook_graph=None, connect_facebo
                 action = CONNECT_ACTIONS.LOGIN
                 user = _login_user(request, converter, auth_user, update=False)
     
-    user.access_token = access_token
+    _update_access_token(user, graph)
     _update_likes_and_friends(request, user, converter)
 
-    _update_access_token(user, graph)
 
     logger.info('connect finished with action %s', action)
 
