@@ -597,7 +597,7 @@ class FacebookUserConverter(object):
             )
             etag = response.headers['etag']
             if user.facebook_friends_etag != etag:
-                friends = json.dumps(response.json())['data']
+                friends = response.json()['data']
                 user.facebook_friends_etag = etag
                 user.save()
             
