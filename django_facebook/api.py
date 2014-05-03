@@ -577,26 +577,40 @@ class FacebookUserConverter(object):
         '''
         Getting the friends via fb and storing them
         '''
-        friends = self.get_friends()
+        friends = self.get_friends(user)
         stored_friends = self._store_friends(user, friends)
         return stored_friends
 
-    def get_friends(self, limit=5000):
+    def get_friends(self, user, limit=5000):
         '''
         Connects to the facebook api and gets the users friends
         '''
         friends = getattr(self, '_friends', None)
         if friends is None:
-            friends_response = self.open_facebook.fql(
-                "SELECT uid, name, sex FROM user WHERE uid IN (SELECT uid2 "
-                "FROM friend WHERE uid1 = me()) LIMIT %s" % limit)
-            # friends_response = self.open_facebook.get('me/friends',
-            #                                           limit=limit)
-            # friends = friends_response and friends_response.get('data')
-            friends = []
-            for response_dict in friends_response:
-                response_dict['id'] = response_dict['uid']
-                friends.append(response_dict)
+            import requests
+            response = requests.request(
+                "GET",
+                "https://graph.facebook.com/me/friends",
+                params={
+                    "access_token": user.access_token,
+                },
+            )
+            etag = response.headers['etag']
+            if user.facebook_friends_etag != etag:
+                friends = json.dumps(response.json())['data']
+                user.facebook_friends_etag = etag
+                user.save()
+            
+#             friends_response = self.open_facebook.fql(
+#                 "SELECT uid, name, sex FROM user WHERE uid IN (SELECT uid2 "
+#                 "FROM friend WHERE uid1 = me()) LIMIT %s" % limit)
+#             # friends_response = self.open_facebook.get('me/friends',
+#             #                                           limit=limit)
+#             # friends = friends_response and friends_response.get('data')
+#             friends = []
+#             for response_dict in friends_response:
+#                 response_dict['id'] = response_dict['uid']
+#                 friends.append(response_dict)
 
         logger.info('found %s friends', len(friends))
 
@@ -660,7 +674,7 @@ class FacebookUserConverter(object):
         and a list of friends which are not on your site
         '''
         profile_class = get_profile_model()
-        friends = self.get_friends(limit=1000)
+        friends = self.get_friends(user, limit=1000)
 
         if friends:
             friend_ids = [f['id'] for f in friends]
