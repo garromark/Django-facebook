@@ -10,6 +10,9 @@ from open_facebook.utils import send_warning, validate_is_instance
 import datetime
 import json
 import logging
+import requests
+import re
+import hashlib
 try:
     from dateutil.parser import parse as parse_date
 except ImportError:
@@ -587,7 +590,6 @@ class FacebookUserConverter(object):
         '''
         friends = getattr(self, '_friends', None)
         if friends is None:
-            import requests
             response = requests.request(
                 "GET",
                 "https://graph.facebook.com/me/friends",
@@ -595,11 +597,14 @@ class FacebookUserConverter(object):
                     "access_token": user.access_token,
                 },
             )
-            etag = response.headers['etag']
-            if user.facebook_friends_etag != etag:
+            content=re.sub(r'\"paging\"\:\{[^\}]*\}', '', response.content)
+            etag = '%s:%s' % (len(content), hashlib.sha224(content).hexdigest())
+            if str(user.facebook_friends_etag) != str(etag):
                 friends = response.json()['data']
                 user.facebook_friends_etag = etag
                 user.save()
+            else:
+                friends = []
             
 #             friends_response = self.open_facebook.fql(
 #                 "SELECT uid, name, sex FROM user WHERE uid IN (SELECT uid2 "
